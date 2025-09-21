@@ -1,0 +1,43 @@
+- name: Retrieve Join Command from master
+  shell: kubeadm token create --print-join-command --ttl 0
+  register: join_command_raw
+  delegate_to: "{{ MASTER_NODE }}"
+  run_once: true
+
+- name: Set Join Command fact 
+  set_fact:
+    join_command: "{{ join_command_raw.stdout }}"
+    run_once: true
+    cacheable: true
+
+- name: Wait until master API server is accessible
+  wait_for:
+    host: "{{ MASTER_NODE }}"
+    port: 6443
+    timeout: 60
+
+- name: Reset kubeadm on worker if previously joined
+  shell: kubeadm reset -f
+  failed_when: false
+
+- name: Clean kubelet directories (workers only)
+  file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /etc/kubernetes
+    - /var/lib/kubelet
+  when: inventory_hostname != MASTER_NODE
+
+- name: Remove node if it exists in cluster
+  command: kubectl delete node {{ ansible_hostname }}
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  delegate_to: "{{ MASTER_NODE }}"
+  ignore_errors: true
+
+
+- name: Join worker to cluster
+  shell: "{{ join_command }}"
+  args:
+    creates: /etc/kubernetes/kubelet.conf

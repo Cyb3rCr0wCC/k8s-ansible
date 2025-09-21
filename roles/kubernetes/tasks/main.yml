@@ -1,0 +1,12 @@
+---
+- import_tasks: dependencies.yml
+  tags: kube_dependencies
+
+- import_tasks: master.yml
+  tags: kube_master
+
+- import_tasks: network.yml
+  tags: kube_network
+
+- import_tasks: worker.yml
+  tags: kube_worker

@@ -1,0 +1,12 @@
+---
+- name: Kubernetes  
+  hosts: worker       
+  become: yes           
+  tasks:                 
+    - include_role:
+        name: kubernetes
+      tags:
+        - "kube_dependencies"
+        - "kube_master"
+        - "kube_network"
+        - "kube_worker"

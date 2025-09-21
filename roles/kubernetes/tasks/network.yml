@@ -1,0 +1,21 @@
+- name: Copy calico.yml to remote host
+  copy:
+    src: calico.yaml
+    dest: /tmp/calico.yml
+    mode: '0644'
+
+- name: Apply calico.yml using kubectl
+  shell: kubectl apply -f /tmp/calico.yml
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+
+- name: Copy metallb-native.yml to remote host
+  copy:
+    src: metallb-native.yaml
+    dest: /tmp/metallb-system.yml
+    mode: '0644'
+
+- name: Apply metallb-system.yml using kubectl
+  shell: kubectl apply -f /tmp/metallb-system.yml
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
