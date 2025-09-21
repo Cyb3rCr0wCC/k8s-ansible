@@ -39,9 +39,11 @@ ansible-galaxy init kubernetes
 
 Inside `k8s-ansible/kubernetes/tasks `folder , create a file named `dependencies.yml`. This will include all the tasks to prepare the server (like disabling swap, loading kernel modules, installing containerd, etc.).
 
-```
-k8s-ansible/roles/kubernetes/tasks/dependencies.yml
-- name: Updates
+`k8s-ansible/roles/kubernetes/tasks/dependencies.yml`
+
+``````yaml
+
+	- name: Updates
       apt:
         update_cache: yes
     - name: Disable SWAP
@@ -152,12 +154,15 @@ k8s-ansible/roles/kubernetes/tasks/dependencies.yml
         value: 1
     - name: Reboot
       reboot:
-```
+``````
+
+
 
 Now, reference the dependency file inside your role’s main task file which is located `k8s-ansible/kubernetes/tasks/main.yml` with tag `kube_dependencies`.
 
-```
-k8s-ansible/roles/kubernetes/tasks/main.yml:
+`k8s-ansible/roles/kubernetes/tasks/main.yml:`
+
+```yaml
 ---
 - import_tasks: dependencies.yml
   tags: kube_dependencies
@@ -165,8 +170,9 @@ k8s-ansible/roles/kubernetes/tasks/main.yml:
 
 At the project root, create a playbook file `server.yml`.
 
-```
-k8s-ansible/server.yml:
+`k8s-ansible/server.yml:`
+
+```yaml
 ---
 - name: Kubernetes # This starts the first (and only) play in this playbook
   hosts: all       # Indented 2 spaces from "name"
@@ -182,8 +188,9 @@ This tells Ansible to apply the `kubernetes` role to all servers listed in your 
 
 Create inventory file in your
 
-```
-k8s-ansible/inventory.yml:
+`k8s-ansible/inventory.yml:`
+
+```yaml
 all:
   children:
     master:
@@ -203,8 +210,9 @@ If you don’t know what is worker and control plane node here’s great explana
 
 Create an `ansible.cfg` configuration file to specify the location of the `inventory.yml` file and define the default user Ansible will use to connect to the servers.
 
-```
-k8s-ansible/ansible.cfg:
+`k8s-ansible/ansible.cfg:`
+
+```yaml
 [defaults]
 inventory = inventory.yml
 remote_user = ubuntu
@@ -212,7 +220,7 @@ remote_user = ubuntu
 
 Finally run playbook against inventory.
 
-```
+```bash
 ansible-playbook server.yml --ask-pass --ask-become-pass --tag "kube_dependencies"
 ```
 
@@ -228,8 +236,9 @@ Now our servers are ready to initialize our kubernetes cluster.
 
 First we need to initialize our control-plane and kubernetes cluster. Create new file named `master.yml` in tasks folder.
 
-```
-k8s-ansible/roles/kubernetes/tasks/master.yml:
+`k8s-ansible/roles/kubernetes/tasks/master.yml:`
+
+```yaml
 - name: Ensure /etc/kubernetes directory exists
       ansible.builtin.file:
         path: /etc/kubernetes
@@ -302,8 +311,9 @@ k8s-ansible/roles/kubernetes/tasks/master.yml:
 
 Add above `master.yml `into main.yml with tag `kube_master`
 
-```
-k8s-ansible/roles/kubernetes/tasks/main.yml:
+`k8s-ansible/roles/kubernetes/tasks/main.yml:`
+
+```yaml
 ---
 - import_tasks: dependencies.yml
   tags: kube_dependencies
@@ -313,8 +323,9 @@ k8s-ansible/roles/kubernetes/tasks/main.yml:
 
 Add new tag `kube_master` to server.yml playbook.
 
-```
-k8s-ansible/server.yml:
+`k8s-ansible/server.yml:`
+
+```yaml
 ---
 - name: Kubernetes  
   hosts: master       
@@ -329,7 +340,7 @@ k8s-ansible/server.yml:
 
 Note here we need to specify master, to run that playbook in a server we want to use it as control-plane. Now Run playbook again with tag `kube_master`.
 
-```
+```bash
 ansible-playbook server.yml --ask-pass --ask-become-pass --tag "kube_master"
 ```
 
@@ -343,8 +354,9 @@ Since we are using bare-metal servers, we need to manually configure the network
 
 Create file called `network.yml` in tasks folder.
 
-```
-k8s-ansible/roles/kubernetes/tasks/network.yml:
+`k8s-ansible/roles/kubernetes/tasks/network.yml:`
+
+```yaml
 - name: Copy calico.yml to remote host
   copy:
     src: calico.yaml
@@ -367,7 +379,7 @@ k8s-ansible/roles/kubernetes/tasks/network.yml:
 
 Now we need metallb and calico manifest file which we can download it from github.
 
-```
+```bash
 cd k8s-ansible/roles/kubernetes/files
 wget https://raw.githubusercontent.com/metallb/metallb/v0.15.2/config/manifests/metallb-native.yaml
 wget https://raw.githubusercontent.com/projectcalico/calico/v3.28.3/manifests/calico.yaml
@@ -375,8 +387,9 @@ wget https://raw.githubusercontent.com/projectcalico/calico/v3.28.3/manifests/ca
 
 Update `main.yml` in tasks
 
-```
-k8s-ansible/roles/kubernetes/tasks/main.yml:
+`k8s-ansible/roles/kubernetes/tasks/main.yml:`
+
+```yaml
 ---
 - import_tasks: dependencies.yml
   tags: kube_dependencies
@@ -388,8 +401,9 @@ k8s-ansible/roles/kubernetes/tasks/main.yml:
 
 Update `server.yml` with `kube_network` tag.
 
-```
-k8s-ansible/server.yml:
+`k8s-ansible/server.yml:`
+
+```yaml
 ---
 - name: Kubernetes  
   hosts: master       
@@ -405,7 +419,7 @@ k8s-ansible/server.yml:
 
 Run pipeline
 
-```
+```yaml
 ansible-playbook server.yml --ask-pass --ask-become-pass --tag "kube_network"
 ```
 
@@ -415,8 +429,9 @@ With the cluster up and running, it’s time to expand by adding worker nodes.
 
 Create `worker.yml` inside tasks folder.
 
-```
-k8s-ansible/roles/kubernetes/tasks/worker.yml:
+`k8s-ansible/roles/kubernetes/tasks/worker.yml:`
+
+```yaml
 - name: Retrieve Join Command from master
   shell: kubeadm token create --print-join-command --ttl 0
   register: join_command_raw
@@ -458,16 +473,18 @@ k8s-ansible/roles/kubernetes/tasks/worker.yml:
 
 Looking closely at the YAML file, you’ll find a variable named `MASTER_NODE` that connects to the control-plane node and retrieves the join command for worker nodes. We haven’t defined this variable yet, so let’s add it. In Ansible, role-specific variables typically live in the `vars` folder within the role’s directory.
 
-```
-k8s-ansible/roles/kubernetes/vars/main.yml:
+`k8s-ansible/roles/kubernetes/vars/main.yml:`
+
+```yaml
 ---
 MASTER_NODE: 192.168.1.160
 ```
 
 Add above `worker.yml` into `main.yml `with tag `kube_worker.`
 
-```
-k8s-ansible/roles/kubernetes/tasks/main.yml:
+`k8s-ansible/roles/kubernetes/tasks/main.yml:`
+
+```yaml
 ---
 - import_tasks: dependencies.yml
   tags: kube_dependencies
@@ -481,8 +498,9 @@ k8s-ansible/roles/kubernetes/tasks/main.yml:
 
 Add new tag `kube_worker` to `server.yml` playbook.
 
-```
-k8s-ansible/server.yml:
+`k8s-ansible/server.yml:`
+
+```yaml
 ---
 - name: Kubernetes  
   hosts: worker       
@@ -499,7 +517,7 @@ k8s-ansible/server.yml:
 
 Note here we need to specify `worker `in `hosts:`, to run that playbook in a server we want to join to cluster. Now Run playbook again with tag `kube_worker`.
 
-```
+```bash
 ansible-playbook server.yml --ask-pass --ask-become-pass --tag "kube_worker"
 ```
 
@@ -509,7 +527,7 @@ Sample output:
 
 After that kubernetes cluster is ready to operate with control-plane and one worker node. You can check nodes by:
 
-```
+```bash
 master> kubectl get nodes
 ```
 
